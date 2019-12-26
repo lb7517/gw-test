@@ -1,0 +1,65 @@
+server:
+  port: 8081   #爱音乐要求这个端口
+
+
+# 方式二: 方式一在 RouteLocatorConfig 中
+spring:
+  cloud:
+    gateway:
+      routes:
+        - id: user-info                  # 路由的id，参数配置不要重复，如不配置，gateway会使用生成一个uuid代替。
+#          uri: http://10.10.36.31:1001/    # 路由的目标地址, 没有负载均衡
+          uri: lb://my-load-balanced-service # 添加负载均衡，lb即LoadBalancerClient
+          predicates:
+            - Path=/user/**              # 配置路由的路径
+#            - After=2019-12-15T06:06:06+08:00[Asia/Shanghai] #请求时间在2019年12月17日6点6分6秒之后转发
+#            - Between=2019-12-15T06:06:06+08:00[Asia/Shanghai], 2019-12-17T06:06:06+08:00[Asia/Shanghai] #之间
+          filters:
+#            - StripPrefix=1  # 1表示过滤第一级路由，2表示过滤前二级路由
+            - AddRequestParameter=foo, barw
+#            - name: Hystrix # Hystrix Filter的名称、设置成默认的
+#              args: # Hystrix 配置参数
+#                name: fallbackcmd # HystrixCommand 的名字
+#                fallbackUri: forward:/fallback # fallback对用的uri
+
+# 限流
+#            - name: RequestRateLimiter
+#              args:
+#                key-resolver: "#{@hostAddrKeyResolverObj}"
+#                redis-rate-limiter.replenishRate: 1  # 令牌桶每秒填充平均速率。
+#                redis-rate-limiter.burstCapacity: 3  # 令牌桶总容量
+
+  application:
+    name: rate-limiter
+  redis:
+    host: 127.0.0.1
+    port: 6379
+    database: 0
+#  main:
+#    #当遇到同样名字的时候，是否允许覆盖注册
+#    allow-bean-definition-overriding: true
+
+
+
+
+# Hystrix 配置(熔断)
+hystrix:
+  command:
+    default:
+      execution:
+        isolation:
+          thread:
+            timeoutInMilliseconds: 2000
+    fallbackcmd:  # 与前面定义的要一致
+      execution:
+        isolation:
+          thread:
+            timeoutInMilliseconds: 4000 # Hystrix 的 fallbackcmd 时间
+
+
+# 添加ribbon负载均衡
+my-load-balanced-service:
+  ribbon:
+    listOfServers: localhost:1001, localhost:1002, localhost:1003        # 配置的微服务的服务器ip端口
+    NFLoadBalanceRuleClassName: com.netflix.loadbalancer.RoundRobinRule  # 使用的负载均衡策略
+    NFLoadBalancePingClassName: com.lb.gw.loadbanlance.HealthExamination
